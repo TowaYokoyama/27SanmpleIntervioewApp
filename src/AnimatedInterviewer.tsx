@@ -11,7 +11,14 @@ const MODEL_PATH = 'https://models.readyplayer.me/689da2507c6c17df66c8f4a1.glb';
 // Ready Player Meで作成された人物モデルがここにある。
 // .glbは3Dモデル＋マテリアル＋アニメーションが1ファイルに含まれる形式。
 
-export function AnimatedInterviewer({ isSpeaking }: { isSpeaking: boolean }) {
+type AnimatedInterviewerProps = {
+  isSpeaking: boolean;
+  scale?: number; // scaleを受け取れるようにする（?は任意プロパティ）
+  position?: [number, number, number]; // positionを受け取れるようにする
+  rotation?: [number, number, number];
+};
+
+export function AnimatedInterviewer({ isSpeaking, ...props }:  AnimatedInterviewerProps) {
   // groupは3Dオブジェクトを参照するためのref。
   // Canvas内でモデルの位置やアニメを制御するために必要。
   const group = useRef(null);
@@ -60,7 +67,7 @@ export function AnimatedInterviewer({ isSpeaking }: { isSpeaking: boolean }) {
   // ref={group} → アニメーション制御や位置変更に使う
   // scale=1.2 → モデルのサイズを拡大
   // position-y={-1.6} → モデルを下に少し下げて画面内に収める
-  return <primitive ref={group} object={scene} scale={1.2} position-y={-1.6} />;
+   return <primitive ref={group} object={scene} {...props} />;
 }
 
 // モデルを事前にロードしておくことで表示時の待機時間を短縮
