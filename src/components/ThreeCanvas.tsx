@@ -1,17 +1,17 @@
 'use client';
 
 import { Suspense } from 'react';
-import { Canvas } from '@react-three/fiber';
+
 import { OrbitControls } from '@react-three/drei';
+import { PosedAvatar } from '@/components/PosedAvatar'; // ← 新しいコンポーネントをインポート
 import { OfficeScene } from './OfficeScreen';
-import { AnimatedInterviewer } from '@/AnimatedInterviewer';
+import { Canvas } from '@react-three/fiber';
 
 
-type ThreeCanvasProps = {
-  isSpeaking: boolean;
-};
+// isSpeakingはもう使わないので、Propsは空でもOK
+type ThreeCanvasProps = {};
 
-export function ThreeCanvas({ isSpeaking }: ThreeCanvasProps) {
+export function ThreeCanvas({}: ThreeCanvasProps) {
   return (
     <div className="w-1/2 h-full">
       <Canvas camera={{ position: [-0.5, 1.5, 3], fov: 60 }}>
@@ -20,10 +20,10 @@ export function ThreeCanvas({ isSpeaking }: ThreeCanvasProps) {
         
         <Suspense fallback={null}>
           <OfficeScene />
-          <AnimatedInterviewer 
-            isSpeaking={isSpeaking} 
+          {/* ここを新しい<PosedAvatar />コンポーネントに差し替える */}
+          <PosedAvatar 
             scale={0.9}
-            position={[-0.2, 0.05, 0.4]}
+            position={[-0.2, 0.9, 0.4]} // 座らせるのでY座標を調整
             rotation={[0, 0.2, 0]}
           />
         </Suspense>
