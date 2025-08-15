@@ -1,41 +1,59 @@
 'use client'; 
-// Next.js のクライアントコンポーネント指定（サーバーではなくブラウザで動作させる）
 
 import React, { useState } from 'react';
-import { ThreeCanvas } from '@/components/ThreeCanvas'; // 3D描画コンポーネント（Three.jsを使っている想定）
-import { DialogueUI } from '@/components/DialogueUI'; // 会話UIコンポーネント
-import { scenario } from './data/scenario'; // 会話のシナリオデータ（配列）
+import { DialogueUI } from '@/components/DialogueUI';
+
+import dynamic from 'next/dynamic';
+import { scenario } from './data/scenario';
+
+const ThreeCanvas = dynamic(
+  () => import('@/components/ThreeCanvas').then(mod => mod.ThreeCanvas),
+  { ssr: false }
+);
 
 export default function InterviewPage() {
-  // キャラクターが「話している状態」を管理するフラグ
-  // isSpeaking が true の間、アニメーションや口パクなどを動かす用途
-  const [isSpeaking, setIsSpeaking] = useState(false);
-
-  // 現在の会話ノード（シナリオの位置）を管理
   const [currentNodeId, setCurrentNodeId] = useState(1);
+  const currentNode = scenario.find((node:any) => node.id === currentNodeId);
+  
+  // --- ▼▼▼ 表情とターンの状態管理を追加 ▼▼▼ ---
+  const [expression, setExpression] = useState<'neutral' | 'talking' | 'thinking'>('talking');
+  const [isPlayerTurn, setIsPlayerTurn] = useState(true);
+  // --- ▲▲▲ ここまで ▲▲▲ ---
 
-  // 現在表示すべき会話データを取得
-  const currentNode = scenario.find(node => node.id === currentNodeId);
-
-  // 選択肢をクリックしたときの処理
   const handleSelectOption = (nextId: number) => {
-    // ▼▼▼ アニメーション開始のトリガー ▼▼▼
-    setIsSpeaking(true);              // 話し始めの瞬間 → true
-    setTimeout(() => setIsSpeaking(false), 100); 
-    // 100ミリ秒後に false に戻す（瞬間的なトリガーとして使う）
-    // これで「選択肢を選んだ瞬間」にだけ一瞬 isSpeaking=true になる
-    // ▲▲▲ ここまで ▲▲▲
+    if (!isPlayerTurn) return; // プレイヤーのターンでなければ何もしない
 
-    // 会話の次のノードに移動
-    setCurrentNodeId(nextId);
+    setIsPlayerTurn(false); // プレイヤーのターンを終了
+    setExpression('thinking'); // 面接官が「考え中」の表情になる
+
+    // 1秒後に、面接官が話し始める
+    setTimeout(() => {
+      const nextNode = scenario.find((node:any) => node.id === nextId);
+      if (nextNode) {
+        setCurrentNodeId(nextId); // 次の会話に進む
+        setExpression('talking'); // 面接官が「会話中」の表情になる
+
+        // 2.5秒後に、面接官が話し終わり、プレイヤーのターンになる
+        setTimeout(() => {
+          setExpression('neutral'); // 面接官が「通常」の表情に戻る
+          setIsPlayerTurn(true); // プレイヤーのターンを開始
+        }, 2500); // この時間はセリフの長さに応じて調整
+
+      }
+    }, 1000); // 考える時間
   };
 
   return (
     <div className="w-screen h-screen relative">
-      {/* 背景の 3D 表示エリア */}
-      <ThreeCanvas />
+      <ThreeCanvas expression={expression} /> {/* 現在の表情をThreeCanvasに渡す */}
       
-      
+      {currentNode && (
+        <DialogueUI 
+          node={currentNode}
+          onSelectOption={handleSelectOption}
+          // isPlayerTurn={isPlayerTurn} // 必要であればUIに渡してボタンを無効化なども可能
+        />
+      )}
     </div>
   );
 }
