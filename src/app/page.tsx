@@ -1,6 +1,6 @@
-'use client'; 
+'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DialogueUI } from '@/components/DialogueUI';
 
 import dynamic from 'next/dynamic';
@@ -13,45 +13,57 @@ const ThreeCanvas = dynamic(
 
 export default function InterviewPage() {
   const [currentNodeId, setCurrentNodeId] = useState(1);
-  const currentNode = scenario.find((node:any) => node.id === currentNodeId);
-  
-  // --- ▼▼▼ 表情とターンの状態管理を追加 ▼▼▼ ---
   const [expression, setExpression] = useState<'neutral' | 'talking' | 'thinking'>('talking');
-  const [isPlayerTurn, setIsPlayerTurn] = useState(true);
-  // --- ▲▲▲ ここまで ▲▲▲ ---
+  const [isPlayerTurn, setIsPlayerTurn] = useState(false); // 最初は面接官のターン
+
+  const currentNode = scenario.find((node: any) => node.id === currentNodeId);
+
+  // 最初の質問を読み上げる処理
+  useEffect(() => {
+    // ページが読み込まれたら、2秒後に最初の質問を開始
+    setTimeout(() => {
+      setIsPlayerTurn(true); // プレイヤーのターンにする
+      setExpression('neutral'); // 表情を通常に戻す
+    }, 2000); // 最初のセリフの時間
+  }, []);
+
 
   const handleSelectOption = (nextId: number) => {
-    if (!isPlayerTurn) return; // プレイヤーのターンでなければ何もしない
+    if (!isPlayerTurn || !scenario.find((node:any) => node.id === nextId)) return;
 
-    setIsPlayerTurn(false); // プレイヤーのターンを終了
-    setExpression('thinking'); // 面接官が「考え中」の表情になる
+    setIsPlayerTurn(false);
+    setExpression('thinking');
 
-    // 1秒後に、面接官が話し始める
+    // 1秒考える
     setTimeout(() => {
-      const nextNode = scenario.find((node:any) => node.id === nextId);
-      if (nextNode) {
-        setCurrentNodeId(nextId); // 次の会話に進む
-        setExpression('talking'); // 面接官が「会話中」の表情になる
+      setCurrentNodeId(nextId);
+      setExpression('talking');
 
-        // 2.5秒後に、面接官が話し終わり、プレイヤーのターンになる
-        setTimeout(() => {
-          setExpression('neutral'); // 面接官が「通常」の表情に戻る
-          setIsPlayerTurn(true); // プレイヤーのターンを開始
-        }, 2500); // この時間はセリフの長さに応じて調整
+      // 2.5秒話す
+      setTimeout(() => {
+        // もし次の選択肢がなければ会話終了
+        const nextNode = scenario.find((node:any) => node.id === nextId);
+        if (nextNode && nextNode.options.length > 0) {
+          setIsPlayerTurn(true);
+          setExpression('neutral');
+        } else {
+          // 会話終了時の表情
+          setExpression('neutral');
+        }
+      }, 2500);
 
-      }
-    }, 1000); // 考える時間
+    }, 1000);
   };
 
   return (
     <div className="w-screen h-screen relative">
-      <ThreeCanvas expression={expression} /> {/* 現在の表情をThreeCanvasに渡す */}
+      <ThreeCanvas expression={expression} />
       
       {currentNode && (
         <DialogueUI 
           node={currentNode}
           onSelectOption={handleSelectOption}
-          // isPlayerTurn={isPlayerTurn} // 必要であればUIに渡してボタンを無効化なども可能
+          isPlayerTurn={isPlayerTurn} // ターン情報をUIに渡す
         />
       )}
     </div>
