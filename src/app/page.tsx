@@ -57,7 +57,7 @@ export default function InterviewPage() {
 
   return (
     <div className="w-screen h-screen relative">
-      <ThreeCanvas expression={expression} />
+      <ThreeCanvas  expression={expression} />
       
       {currentNode && (
         <DialogueUI 

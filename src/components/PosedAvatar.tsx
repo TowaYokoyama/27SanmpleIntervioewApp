@@ -1,57 +1,34 @@
 'use client';
 
-import { useGLTF, useAnimations } from '@react-three/drei';
-import React, { useRef, useEffect, JSX } from 'react';
+import { useGLTF } from '@react-three/drei';
+import React, { useRef, useEffect, JSX, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 
-const MODEL_PATH = 'https://models.readyplayer.me/689da2507c6c17df66c8f4a1.glb';
+// 新しいアバターのURL
+const MODEL_PATH = 'https://models.readyplayer.me/689fbc6d19b4a3fa54e1e606.glb';
 
 type PosedAvatarProps = JSX.IntrinsicElements['group'] & {
   expression: 'neutral' | 'talking' | 'thinking';
 };
 
 export function PosedAvatar({ expression, ...props }: PosedAvatarProps) {
-  const group = useRef<THREE.Group>(null);
-  const { scene, animations } = useGLTF(MODEL_PATH);
+  const { scene } = useGLTF(MODEL_PATH);
   
-  // useFrameフック：毎フレーム実行される関数を登録します。アニメーションに最適です。
-  useFrame(() => {
-    const mesh = scene.getObjectByName('Wolf3D_Teeth') as THREE.SkinnedMesh;
-    if (!mesh || !mesh.morphTargetDictionary || !mesh.morphTargetInfluences) return;
+  // ▼▼▼ Stateの型定義を修正 ▼▼▼
+  // useStateに、SkinnedMeshまたはnullが入ることを明示的に教える
+  const [meshes, setMeshes] = useState<{ face: THREE.SkinnedMesh | null, teeth: THREE.SkinnedMesh | null }>({ face: null, teeth: null });
 
-    const influences = mesh.morphTargetInfluences;
-    const dict = mesh.morphTargetDictionary;
-    const mouthOpenIndex = dict['mouthOpen'];
-    const smileIndex = dict['mouthSmile'];
-
-    // 目標の表情値を設定
-    let targetMouth = 0;
-    let targetSmile = 0;
-
-    switch (expression) {
-      case 'talking':
-        // 口をパクパクさせるために、時間に応じて値を変化させる
-        targetMouth = 0.3 + Math.sin(Date.now() * 0.01) * 0.2;
-        break;
-      case 'thinking':
-        targetSmile = 0.5;
-        break;
-      default: // 'neutral'
-        break;
-    }
-
-    // 現在の表情値から目標値へ、滑らかに変化させる（Lerp）
-    if (mouthOpenIndex !== undefined) {
-      influences[mouthOpenIndex] = THREE.MathUtils.lerp(influences[mouthOpenIndex], targetMouth, 0.1);
-    }
-    if (smileIndex !== undefined) {
-      influences[smileIndex] = THREE.MathUtils.lerp(influences[smileIndex], targetSmile, 0.1);
-    }
-  });
-
-  // 座るポーズの設定（これは初回だけでOK）
+  // --- モデル読み込み時に一度だけ実行 ---
   useEffect(() => {
+    if (!scene) return;
+    
+    // オブジェクトを探索し、顔と歯のメッシュを見つけてStateに保存
+    const faceMesh = scene.getObjectByName('Wolf3D_Avatar') as THREE.SkinnedMesh | null;
+    const teethMesh = scene.getObjectByName('Wolf3D_Teeth') as THREE.SkinnedMesh | null;
+    setMeshes({ face: faceMesh, teeth: teethMesh });
+
+    // 座るポーズの設定
     scene.traverse((object: any) => {
       if (object instanceof THREE.Bone) {
         if (object.name === 'Spine1') object.rotation.x = 0.4;
@@ -61,7 +38,47 @@ export function PosedAvatar({ expression, ...props }: PosedAvatarProps) {
     });
   }, [scene]);
 
-  return <primitive ref={group} object={scene} {...props} />;
+  
+  // --- 表情アニメーション（毎フレーム実行） ---
+  useFrame(() => {
+    // 顔と歯のメッシュが見つかっていなければ何もしない
+    if (!meshes.face || !meshes.teeth) return;
+
+    const { face, teeth } = meshes;
+
+    // 顔の表情を制御
+    const faceInfluences = face.morphTargetInfluences;
+    const faceDict = face.morphTargetDictionary;
+    if (faceDict && faceInfluences) {
+      const smileIndex = faceDict['mouthSmile'];
+      
+      let targetSmile = 0;
+      if (expression === 'thinking') {
+        targetSmile = 0.8; // 考え中は微笑む
+      }
+      if (smileIndex !== undefined) {
+        faceInfluences[smileIndex] = THREE.MathUtils.lerp(faceInfluences[smileIndex], targetSmile, 0.1);
+      }
+    }
+
+    // 歯（口の開閉）を制御
+    const teethInfluences = teeth.morphTargetInfluences;
+    const teethDict = teeth.morphTargetDictionary;
+    if (teethDict && teethInfluences) {
+      const mouthOpenIndex = teethDict['mouthOpen'];
+
+      let targetMouth = 0;
+      if (expression === 'talking') {
+        // 口をパクパクさせる
+        targetMouth = 0.4 + Math.sin(Date.now() * 0.01) * 0.3;
+      }
+      if (mouthOpenIndex !== undefined) {
+        teethInfluences[mouthOpenIndex] = THREE.MathUtils.lerp(teethInfluences[mouthOpenIndex], targetMouth, 0.2);
+      }
+    }
+  });
+
+  return <primitive object={scene} {...props} />;
 }
 
 useGLTF.preload(MODEL_PATH);
